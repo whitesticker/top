@@ -8,12 +8,6 @@ for CPU, GPU, memory, disk, sensors, and battery, all in one compact view.
   <img src=".github/dashboard.png" alt="top dashboard" width="360">
 </p>
 
-## Why
-
-Most menu bar monitors are either bloated (Electron, background daemons,
-telemetry) or paid. `top` is a few hundred KB of pure Swift talking directly
-to the same low-level APIs Activity Monitor uses (`sysctl`, IOKit, SMC) —
-no dependencies, no subscription, source included.
 
 ## Features
 
