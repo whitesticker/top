@@ -1,6 +1,55 @@
 import Foundation
 import IOKit
 
+// MARK: - Human-readable sensor names
+//
+// SMC temperature keys are raw 4-character codes (e.g. "TC0P", "Ts0P")
+// meaningless to anyone who hasn't memorized Apple's internal naming
+// convention. This maps the well-documented ones (used across every
+// open-source SMC reader) to plain names, and falls back to a best-effort
+// category (still keeping the raw key visible) for newer/undocumented
+// Apple Silicon keys we can't map with full confidence.
+enum SensorNames {
+    private static let known: [String: String] = [
+        "TA0P": "Ambient",
+        "TA1P": "Ambient 2",
+        "TC0P": "CPU Proximity",
+        "TC0D": "CPU Die",
+        "TC0E": "CPU",
+        "TC0F": "CPU",
+        "TCGC": "GPU (PECI)",
+        "TG0P": "GPU Proximity",
+        "TG0D": "GPU Die",
+        "TH0P": "Heatsink",
+        "TM0P": "Memory",
+        "TN0P": "Northbridge",
+        "TP0P": "Power Supply",
+        "TW0P": "Wireless",
+        "Ts0P": "Palm Rest",
+        "Ts1P": "Palm Rest 2",
+        "TB0T": "Battery",
+        "TB1T": "Battery 2",
+        "TB2T": "Battery 3",
+    ]
+
+    /// A human-readable name for a raw SMC key. Exact matches use the
+    /// documented name above; anything else gets a best-effort category
+    /// (CPU/GPU/Battery/etc.) with the raw key kept alongside it, since we
+    /// aren't fully certain what it measures.
+    static func displayName(for key: String) -> String {
+        if let known = known[key] { return known }
+        if key.hasPrefix("Ts") { return "Case/Palm Rest (\(key))" }
+        if key.hasPrefix("TB") { return "Battery (\(key))" }
+        if key.hasPrefix("TA") { return "Ambient (\(key))" }
+        if key.hasPrefix("TW") { return "Wireless (\(key))" }
+        if key.hasPrefix("TH") { return "Heatsink (\(key))" }
+        if key.hasPrefix("TM") { return "Memory (\(key))" }
+        if key.hasPrefix("Tp") || key.hasPrefix("Tc") || key.hasPrefix("TC") { return "CPU (\(key))" }
+        if key.hasPrefix("Tg") || key.hasPrefix("TG") { return "GPU (\(key))" }
+        return key
+    }
+}
+
 // MARK: - SMC (Apple System Management Controller) access
 //
 // This file talks directly to the AppleSMC IOKit user client to read

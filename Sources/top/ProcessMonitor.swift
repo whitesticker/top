@@ -79,8 +79,13 @@ final class ProcessMonitor {
     // MARK: - Disk
 
     func topDiskProcesses(count: Int = 5) -> [TopProcess] {
+        // Disk I/O is bursty enough that most processes write nothing in
+        // any given instant -- a longer sampling window than CPU's (0.5s
+        // vs 0.2s) catches meaningfully more activity without making the
+        // Disk detail submenu noticeably slower to open.
+        let interval = 0.5
         let before = allDiskIOBytes()
-        Thread.sleep(forTimeInterval: 0.2)
+        Thread.sleep(forTimeInterval: interval)
         let after = allDiskIOBytes()
 
         guard !before.isEmpty, !after.isEmpty else { return [] }
@@ -95,7 +100,7 @@ final class ProcessMonitor {
 
         return deltas.sorted { $0.delta > $1.delta }.prefix(count).compactMap { entry in
             guard let name = processName(pid: entry.pid) else { return nil }
-            let bytesPerSec = Double(entry.delta) / 0.2
+            let bytesPerSec = Double(entry.delta) / interval
             return TopProcess(pid: entry.pid, name: name, value: bytesPerSec)
         }
     }
@@ -111,10 +116,16 @@ final class ProcessMonitor {
 
     // MARK: - Network (best-effort via `nettop`)
 
+    // Ranks by total aggregated data transferred (bytes since the process
+    // started), not current bandwidth -- a single nettop sample reports
+    // cumulative per-process counters rather than a rate, which is exactly
+    // "who has used the most data", not "who's busiest right now". An
+    // earlier version sampled twice a second apart to compute a rate; this
+    // is both simpler and closer to what was actually wanted.
     func topNetworkProcesses(count: Int = 5) -> [TopProcess] {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/nettop")
-        task.arguments = ["-P", "-x", "-l", "2", "-J", "bytes_in,bytes_out"]
+        task.arguments = ["-P", "-x", "-l", "1", "-J", "bytes_in,bytes_out"]
 
         let outPipe = Pipe()
         task.standardOutput = outPipe
@@ -132,31 +143,35 @@ final class ProcessMonitor {
         return Self.parseNettopTopProcesses(output, count: count)
     }
 
-    // `nettop -P -x -l 2 -J bytes_in,bytes_out` prints one CSV header +
-    // process rows per sample, sampling twice one second apart. Use the
-    // last block: its byte columns reflect that real one-second interval,
-    // not a cumulative counter since an arbitrary start point.
+    // `nettop -P -x -l 1 -J bytes_in,bytes_out` prints one header line
+    // ("... bytes_in  bytes_out", no comma despite `-J`, and no label at
+    // all over the name column) followed by one row per process. This is
+    // NOT CSV -- it's whitespace-column-aligned text -- an earlier version
+    // assumed a "time,bytes_in,bytes_out" CSV header that never actually
+    // appears, so every call silently returned an empty list.
     static func parseNettopTopProcesses(_ output: String, count: Int = 5) -> [TopProcess] {
         let lines = output.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
-        guard let lastHeaderIndex = lines.lastIndex(where: { $0.hasPrefix("time,") }) else {
-            return []
+        func isHeader(_ line: String) -> Bool {
+            line.contains("bytes_in") && line.contains("bytes_out")
         }
-        let header = lines[lastHeaderIndex].split(separator: ",", omittingEmptySubsequences: false).map(String.init)
-        guard let nameIdx = header.firstIndex(of: "time"),
-              let inIdx = header.firstIndex(of: "bytes_in"),
-              let outIdx = header.firstIndex(of: "bytes_out") else { return [] }
+        guard let headerIndex = lines.firstIndex(where: isHeader) else { return [] }
 
         var entries: [TopProcess] = []
-        for line in lines[(lastHeaderIndex + 1)...] {
-            if line.hasPrefix("time,") { break }
-            let cols = line.split(separator: ",", omittingEmptySubsequences: false).map(String.init)
-            guard cols.count > inIdx, cols.count > outIdx, cols.count > nameIdx else { continue }
-            guard let bytesIn = Double(cols[inIdx]), let bytesOut = Double(cols[outIdx]) else { continue }
+        for line in lines[(headerIndex + 1)...] {
+            if isHeader(line) { break }
+            // The process field is "name.pid" and can itself contain
+            // spaces (e.g. "Notion Helper.13665"), so take the last two
+            // whitespace-separated tokens as the byte counts and treat
+            // everything before them as the combined name+pid field.
+            let tokens = line.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+            guard tokens.count >= 3,
+                  let bytesOut = Double(tokens[tokens.count - 1]),
+                  let bytesIn = Double(tokens[tokens.count - 2]) else { continue }
             let total = bytesIn + bytesOut
             guard total > 0 else { continue }
-            // nettop's process column looks like "Safari.123" (name.pid) --
-            // strip the trailing ".<pid>" and recover the pid for icon lookup.
-            var nameParts = cols[nameIdx].split(separator: ".")
+
+            let nameAndPID = tokens[0..<(tokens.count - 2)].joined(separator: " ")
+            var nameParts = nameAndPID.split(separator: ".").map(String.init)
             var pid: pid_t = 0
             if nameParts.count > 1, let parsedPID = Int32(nameParts.last!) {
                 pid = parsedPID

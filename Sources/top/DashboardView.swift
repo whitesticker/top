@@ -125,7 +125,7 @@ private struct CPUSection: View {
 
 /// Every logical core's usage individually, plus the same sparkline/load
 /// info as the compact card at a larger size.
-private struct CPUDetail: View {
+struct CPUDetail: View {
     let cpu: CPUSample
     let history: [Double]
 
@@ -207,7 +207,7 @@ private struct GPUSection: View {
     }
 }
 
-private struct GPUDetail: View {
+struct GPUDetail: View {
     let gpu: GPUSample
     let history: [Double]
 
@@ -267,7 +267,7 @@ private struct MemorySection: View {
     }
 }
 
-private struct MemoryDetail: View {
+struct MemoryDetail: View {
     let memory: MemorySample
     let history: [Double]
     let pressureColor: Color
@@ -361,7 +361,7 @@ private struct NetworkSection: View {
 }
 
 /// All interfaces (not just the primary one) with their live rates and IPs.
-private struct NetworkDetail: View {
+struct NetworkDetail: View {
     let network: NetworkSample
 
     var body: some View {
@@ -394,8 +394,9 @@ private struct NetworkDetail: View {
             }
             Divider()
             TopProcessList(
+                label: "Top processes (total data)",
                 sample: { ProcessMonitor().topNetworkProcesses() },
-                format: { Fmt.speed($0) }
+                format: { Fmt.bytes($0) }
             )
         }
     }
@@ -452,7 +453,7 @@ private struct DiskSection: View {
     }
 }
 
-private struct VolumeRow: View {
+struct VolumeRow: View {
     let volume: DiskVolumeSample
 
     private var fraction: Double {
@@ -480,7 +481,7 @@ private struct VolumeRow: View {
 }
 
 /// Every volume (not just the top 2 by size), plus fuller throughput info.
-private struct DiskDetail: View {
+struct DiskDetail: View {
     let disk: DiskSample
     let readHistory: [Double]
     let writeHistory: [Double]
@@ -545,7 +546,7 @@ private struct SensorsSection: View {
                 }
 
                 if let hot = hottestOther {
-                    Text("\(hot.label): \(Fmt.temp(hot.celsius))")
+                    Text("\(SensorNames.displayName(for: hot.label)): \(Fmt.temp(hot.celsius))")
                         .font(.system(size: 8.5))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
@@ -566,16 +567,24 @@ private struct SensorsSection: View {
 /// Every individual temperature sensor and fan -- the full raw list the
 /// compact card deliberately omits (that was the original scroll-length
 /// bug: up to ~186 raw SMC keys on some Macs). Safe here since this panel
-/// scrolls independently and only appears on demand.
-private struct SensorsDetail: View {
+/// only appears on demand. Temperatures render as a compact heat-map grid
+/// (tile color ramps green/yellow/red with the reading) rather than a
+/// tall vertical list, since there can be dozens of them.
+struct SensorsDetail: View {
     let sensors: SensorSample
 
     private var sortedTemps: [TemperatureSample] {
         sensors.temperatures.sorted { $0.celsius > $1.celsius }
     }
 
+    private func heatColor(_ celsius: Double) -> Color {
+        if celsius < 45 { return DashColors.statusGood }
+        if celsius < 65 { return DashColors.statusWarning }
+        return DashColors.statusCritical
+    }
+
     var body: some View {
-        DetailPanel(title: "Sensors", systemImage: "thermometer.medium") {
+        DetailPanel(title: "Sensors", systemImage: "thermometer.medium", width: 420) {
             if sensors.fans.isEmpty && sortedTemps.isEmpty {
                 Text("No sensor data").font(DashStyle.labelFont).foregroundColor(.secondary)
             }
@@ -588,15 +597,33 @@ private struct SensorsDetail: View {
             }
             if !sortedTemps.isEmpty {
                 Text("Temperatures (\(sortedTemps.count))").font(.system(size: 9, weight: .semibold)).foregroundColor(.secondary)
-                ForEach(Array(sortedTemps.enumerated()), id: \.offset) { _, t in
-                    StatRow(label: t.label, value: Fmt.temp(t.celsius))
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 8), spacing: 4) {
+                    ForEach(Array(sortedTemps.enumerated()), id: \.offset) { _, t in
+                        VStack(spacing: 1) {
+                            Text(SensorNames.displayName(for: t.label))
+                                .font(.system(size: 7.5))
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                            Text(Fmt.temp(t.celsius))
+                                .font(.system(size: 10.5, weight: .semibold))
+                                .monospacedDigit()
+                        }
+                        .padding(.vertical, 4)
+                        .padding(.horizontal, 2)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 4, style: .continuous)
+                                .fill(heatColor(t.celsius).opacity(0.22))
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-private struct HighlightStat: View {
+struct HighlightStat: View {
     let label: String
     let value: String
 
@@ -672,7 +699,7 @@ private struct PowerSection: View {
     }
 }
 
-private struct PowerDetail: View {
+struct PowerDetail: View {
     let power: PowerSample
 
     var body: some View {
@@ -687,6 +714,17 @@ private struct PowerDetail: View {
                 StatRow(label: "Health", value: Fmt.percent(power.health))
                 StatRow(label: "Power draw", value: Fmt.watts(power.powerWatts))
                 StatRow(label: "Battery temp", value: Fmt.temp(power.temperature))
+                Divider()
+                // macOS has no public per-process "energy impact" API (the
+                // private mechanism behind Activity Monitor's Energy tab
+                // isn't accessible to third-party apps) -- CPU usage is the
+                // closest available proxy, since it's usually what's
+                // actually driving battery drain.
+                TopProcessList(
+                    label: "Heaviest CPU users (energy proxy)",
+                    sample: { ProcessMonitor().topCPUProcesses() },
+                    format: { String(format: "%.0f%%", $0) }
+                )
             } else {
                 Text("On AC power / no battery").font(DashStyle.labelFont).foregroundColor(.secondary)
             }

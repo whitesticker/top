@@ -136,6 +136,7 @@ extension SectionCard where Detail == EmptyView {
 struct DetailPanel<Content: View>: View {
     let title: String
     let systemImage: String
+    var width: CGFloat = 260
     @ViewBuilder var content: Content
 
     var body: some View {
@@ -146,15 +147,17 @@ struct DetailPanel<Content: View>: View {
                 Text(title)
                     .font(.system(size: 13, weight: .semibold))
             }
-            ScrollView {
-                VStack(alignment: .leading, spacing: 4) {
-                    content
-                }
+            // No internal ScrollView/maxHeight: this is now a real NSMenu
+            // submenu (see DetailSubmenu), not a fixed-size popover, so it
+            // should just grow to fit its content the same way the main
+            // menu does -- a capped-height ScrollView here just forced an
+            // extra scroll gesture inside an already-scrollable menu.
+            VStack(alignment: .leading, spacing: 4) {
+                content
             }
-            .frame(maxHeight: 360)
         }
         .padding(12)
-        .frame(width: 260)
+        .frame(width: width)
     }
 }
 
@@ -270,6 +273,7 @@ struct UsageBar: View {
 /// closes before it finishes), since `ProcessMonitor`'s sampling is too
 /// expensive to run continuously in the background.
 struct TopProcessList: View {
+    var label: String = "Top processes"
     var sample: @Sendable () -> [ProcessMonitor.TopProcess]
     var format: (Double) -> String
 
@@ -279,7 +283,7 @@ struct TopProcessList: View {
     var body: some View {
         let sample = sample
         return VStack(alignment: .leading, spacing: 4) {
-            Text("Top processes").font(.system(size: 9, weight: .semibold)).foregroundColor(.secondary)
+            Text(label).font(.system(size: 9, weight: .semibold)).foregroundColor(.secondary)
             if !loaded {
                 Text("…").font(DashStyle.labelFont).foregroundColor(.secondary)
             } else if processes.isEmpty {
