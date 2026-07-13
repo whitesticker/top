@@ -11,6 +11,48 @@ enum DashStyle {
     static let valueFont: Font = .system(size: 11, weight: .medium)
 }
 
+/// Single source of truth for every color used in the dashboard. Views
+/// should never write a literal `.blue`/`.green`/etc. or `Color(nsColor:)` --
+/// they reference a semantic name here instead, so the whole app's palette
+/// (or its light/dark, vibrancy, and accent behavior) can be changed in one
+/// place.
+enum DashColors {
+    // Native system accent color -- the same blue (or whatever the user set
+    // in System Settings > Appearance) that macOS uses for the connected
+    // network highlight in the Wi-Fi menu, toggle switches, etc. Using
+    // `Color.accentColor` instead of a hardcoded `.blue` means this app's
+    // highlight automatically matches the user's chosen accent color.
+    static let accent = Color.accentColor
+
+    // Status ramp shared by every threshold-based gauge (usage bars, core
+    // bars, ring gauges, memory pressure, battery level).
+    static let statusGood: Color = .green
+    static let statusWarning: Color = .yellow
+    static let statusCritical: Color = .red
+
+    // Per-metric line/sparkline colors. `download` reuses the system accent
+    // since it's the dashboard's primary/most-glanced-at number.
+    static let download = accent
+    static let upload: Color = .orange
+    static let cpuLine: Color = .blue
+    static let gpuLine: Color = .purple
+    static let diskRead: Color = .green
+    static let diskWrite: Color = .pink
+
+    // Panel background: intentionally not set here. NSPopover already
+    // renders its own native vibrant chrome (the same blur macOS uses for
+    // system menus, e.g. the Wi-Fi dropdown) -- painting a SwiftUI
+    // `.background()` of any kind (flat color or Material) on the root view
+    // just paints over/fights that default instead of letting it show
+    // through, which is what produced a flat, muddy tint instead of true
+    // vibrancy. See `DashboardView.body`, which has no `.background()`.
+    //
+    // Cards still need a subtle flat tint (not another material layer) to
+    // stay visually grouped against that vibrancy -- stacking a second blur
+    // pass on top compounds color casts into the same muddiness.
+    static let cardBackground: Color = Color.primary.opacity(0.05)
+}
+
 // MARK: - Section card
 
 /// A titled card with an SF Symbol icon, used to group one metric category.
@@ -19,6 +61,17 @@ enum DashStyle {
 /// view, iStat-Menus-style -- e.g. tapping the compact Sensors card (which
 /// only shows a couple of highlighted readings) opens a popover listing
 /// every individual sensor.
+///
+/// This still uses SwiftUI's `.popover` (with its anchor arrow), not
+/// `DetailMenuPresenter`'s NSMenu approach: calling `NSMenu.popUp` from a
+/// click inside a view that's itself hosted inside an *already-open*
+/// NSMenuItem doesn't work -- AppKit doesn't support nesting an independent
+/// menu-tracking session inside another one's live event handling, so cards
+/// simply stopped responding to clicks at all when this tried it. Removing
+/// this arrow for real would mean each card becoming its own top-level
+/// NSMenuItem with a genuine `.submenu`, which trades away the compact
+/// 2-column "everything visible at once" grid for a vertical list, one
+/// metric per row -- a bigger call than fixing a cosmetic arrow.
 struct SectionCard<Content: View, Detail: View>: View {
     let title: String
     let systemImage: String
@@ -51,16 +104,12 @@ struct SectionCard<Content: View, Detail: View>: View {
         .padding(DashStyle.cardPadding)
         .background(
             RoundedRectangle(cornerRadius: DashStyle.cardCorner, style: .continuous)
-                .fill(Color(nsColor: .controlBackgroundColor))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: DashStyle.cardCorner, style: .continuous)
-                .stroke(Color.primary.opacity(0.06), lineWidth: 1)
+                .fill(DashColors.cardBackground)
         )
         .contentShape(Rectangle())
         .onTapGesture {
             guard detail != nil else { return }
-            showDetail = true
+            showDetail.toggle()
         }
         .popover(isPresented: $showDetail, arrowEdge: .trailing) {
             if let detail {
@@ -194,9 +243,9 @@ struct UsageBar: View {
 
     private var resolvedColor: Color {
         if let c = color { return c }
-        if clamped < 0.6 { return .green }
-        if clamped < 0.8 { return .yellow }
-        return .red
+        if clamped < 0.6 { return DashColors.statusGood }
+        if clamped < 0.8 { return DashColors.statusWarning }
+        return DashColors.statusCritical
     }
 
     var body: some View {
@@ -214,6 +263,59 @@ struct UsageBar: View {
 }
 
 // MARK: - Stat row
+
+/// "Who's using the most of this resource right now" -- a ranked top-5
+/// list with app icons (Activity-Monitor-style), loaded on demand while the
+/// detail popover is visible (`.task` cancels automatically if the popover
+/// closes before it finishes), since `ProcessMonitor`'s sampling is too
+/// expensive to run continuously in the background.
+struct TopProcessList: View {
+    var sample: @Sendable () -> [ProcessMonitor.TopProcess]
+    var format: (Double) -> String
+
+    @State private var processes: [ProcessMonitor.TopProcess] = []
+    @State private var loaded = false
+
+    var body: some View {
+        let sample = sample
+        return VStack(alignment: .leading, spacing: 4) {
+            Text("Top processes").font(.system(size: 9, weight: .semibold)).foregroundColor(.secondary)
+            if !loaded {
+                Text("…").font(DashStyle.labelFont).foregroundColor(.secondary)
+            } else if processes.isEmpty {
+                Text("—").font(DashStyle.labelFont).foregroundColor(.secondary)
+            } else {
+                ForEach(processes) { proc in
+                    HStack(spacing: 6) {
+                        if let icon = ProcessMonitor.icon(for: proc.pid) {
+                            Image(nsImage: icon)
+                                .resizable()
+                                .frame(width: 14, height: 14)
+                        } else {
+                            Image(systemName: "gearshape")
+                                .frame(width: 14, height: 14)
+                                .foregroundColor(.secondary)
+                        }
+                        Text(proc.name)
+                            .font(DashStyle.labelFont)
+                            .foregroundColor(.primary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        Spacer(minLength: 8)
+                        Text(format(proc.value))
+                            .font(DashStyle.valueFont)
+                            .monospacedDigit()
+                    }
+                }
+            }
+        }
+        .task {
+            let result = await Task.detached(priority: .utility, operation: sample).value
+            processes = result
+            loaded = true
+        }
+    }
+}
 
 /// A compact label/value row: label on the left (secondary), value on the
 /// right (monospaced digits, primary).
@@ -291,9 +393,9 @@ struct CoreBar: View {
     private var clamped: Double { max(0, min(fraction, 1)) }
 
     private var barColor: Color {
-        if clamped < 0.6 { return .green }
-        if clamped < 0.85 { return .yellow }
-        return .red
+        if clamped < 0.6 { return DashColors.statusGood }
+        if clamped < 0.85 { return DashColors.statusWarning }
+        return DashColors.statusCritical
     }
 
     var body: some View {
@@ -324,9 +426,9 @@ struct RingGauge: View {
 
     private var resolvedColor: Color {
         if let c = color { return c }
-        if clamped < 0.6 { return .green }
-        if clamped < 0.8 { return .yellow }
-        return .red
+        if clamped < 0.6 { return DashColors.statusGood }
+        if clamped < 0.8 { return DashColors.statusWarning }
+        return DashColors.statusCritical
     }
 
     var body: some View {

@@ -1,5 +1,4 @@
 import SwiftUI
-import AppKit
 
 // MARK: - Dashboard
 
@@ -44,7 +43,6 @@ struct DashboardView: View {
         .padding(8)
         .frame(width: panelWidth)
         .fixedSize(horizontal: false, vertical: true)
-        .background(Color(nsColor: .windowBackgroundColor))
     }
 }
 
@@ -93,7 +91,7 @@ private struct CPUSection: View {
                 .monospacedDigit()
             }
 
-            Sparkline(values: history, maxValue: 1.0, color: .blue)
+            Sparkline(values: history, maxValue: 1.0, color: DashColors.cpuLine)
                 .frame(height: 20)
 
             if !cpu.perCore.isEmpty {
@@ -139,7 +137,7 @@ private struct CPUDetail: View {
             StatRow(label: "User", value: Fmt.percent(cpu.user))
             StatRow(label: "System", value: Fmt.percent(cpu.system))
             StatRow(label: "Idle", value: Fmt.percent(cpu.idle))
-            Sparkline(values: history, maxValue: 1.0, color: .blue)
+            Sparkline(values: history, maxValue: 1.0, color: DashColors.cpuLine)
                 .frame(height: 40)
             if cpu.pCoreCount > 0 {
                 Divider()
@@ -151,14 +149,27 @@ private struct CPUDetail: View {
             if !cpu.perCore.isEmpty {
                 Divider()
                 Text("Per-core").font(.system(size: 9, weight: .semibold)).foregroundColor(.secondary)
-                ForEach(Array(cpu.perCore.enumerated()), id: \.offset) { i, v in
-                    StatRow(label: "Core \(i)", value: Fmt.percent(v))
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 8), spacing: 6) {
+                    ForEach(Array(cpu.perCore.enumerated()), id: \.offset) { i, v in
+                        VStack(spacing: 2) {
+                            CoreBar(fraction: v, width: 10)
+                                .frame(height: 28)
+                            Text("\(i)")
+                                .font(.system(size: 7))
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
             }
             Divider()
             StatRow(label: "Load avg (1m)", value: String(format: "%.2f", cpu.load1))
             StatRow(label: "Load avg (5m)", value: String(format: "%.2f", cpu.load5))
             StatRow(label: "Load avg (15m)", value: String(format: "%.2f", cpu.load15))
+            Divider()
+            TopProcessList(
+                sample: { ProcessMonitor().topCPUProcesses() },
+                format: { String(format: "%.0f%%", $0) }
+            )
         }
     }
 }
@@ -182,7 +193,7 @@ private struct GPUSection: View {
                     .foregroundColor(.secondary)
                     .lineLimit(1)
                     .truncationMode(.tail)
-                Sparkline(values: history, maxValue: 1.0, color: .purple)
+                Sparkline(values: history, maxValue: 1.0, color: DashColors.gpuLine)
                     .frame(height: 20)
                 Spacer(minLength: 0)
             } else {
@@ -205,7 +216,7 @@ private struct GPUDetail: View {
             if gpu.available {
                 StatRow(label: "Name", value: gpu.name.isEmpty ? "GPU" : gpu.name)
                 StatRow(label: "Utilization", value: Fmt.percent(gpu.utilization))
-                Sparkline(values: history, maxValue: 1.0, color: .purple)
+                Sparkline(values: history, maxValue: 1.0, color: DashColors.gpuLine)
                     .frame(height: 40)
             } else {
                 Text("No GPU data available").font(DashStyle.labelFont).foregroundColor(.secondary)
@@ -221,9 +232,9 @@ private struct MemorySection: View {
     let history: [Double]
 
     private var pressureColor: Color {
-        if memory.pressure < 0.6 { return .green }
-        if memory.pressure < 0.8 { return .yellow }
-        return .red
+        if memory.pressure < 0.6 { return DashColors.statusGood }
+        if memory.pressure < 0.8 { return DashColors.statusWarning }
+        return DashColors.statusCritical
     }
 
     var body: some View {
@@ -277,6 +288,11 @@ private struct MemoryDetail: View {
             Divider()
             StatRow(label: "Swap used", value: Fmt.bytes(memory.swapUsed))
             StatRow(label: "Swap total", value: Fmt.bytes(memory.swapTotal))
+            Divider()
+            TopProcessList(
+                sample: { ProcessMonitor().topMemoryProcesses() },
+                format: { Fmt.bytes($0) }
+            )
         }
     }
 }
@@ -288,10 +304,13 @@ private struct NetworkSection: View {
     let downHistory: [Double]
     let upHistory: [Double]
 
-    private var ipLine: String {
+    /// Interface name in the normal secondary style, IP address bolded so
+    /// it's the one thing that jumps out on this line.
+    private var ipLine: Text {
         let iface = network.primaryInterface.isEmpty ? "—" : network.primaryInterface
         let ip = network.primaryIP.isEmpty ? "—" : network.primaryIP
-        return "\(iface) · \(ip)"
+        return Text("\(iface) · ").foregroundColor(.secondary)
+            + Text(ip).fontWeight(.bold).foregroundColor(.primary)
     }
 
     var body: some View {
@@ -303,33 +322,32 @@ private struct NetworkSection: View {
                     HStack(spacing: 2) {
                         Image(systemName: "arrow.down")
                             .font(.system(size: 8, weight: .bold))
-                            .foregroundColor(.blue)
+                            .foregroundColor(DashColors.download)
                         Text(Fmt.speed(network.downBytesPerSec))
                             .font(.system(size: 10.5, weight: .semibold))
                             .monospacedDigit()
                             .lineLimit(1)
                     }
-                    Sparkline(values: downHistory, color: .blue)
+                    Sparkline(values: downHistory, color: DashColors.download)
                         .frame(height: 16)
                 }
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 2) {
                         Image(systemName: "arrow.up")
                             .font(.system(size: 8, weight: .bold))
-                            .foregroundColor(.orange)
+                            .foregroundColor(DashColors.upload)
                         Text(Fmt.speed(network.upBytesPerSec))
                             .font(.system(size: 10.5, weight: .semibold))
                             .monospacedDigit()
                             .lineLimit(1)
                     }
-                    Sparkline(values: upHistory, color: .orange)
+                    Sparkline(values: upHistory, color: DashColors.upload)
                         .frame(height: 16)
                 }
             }
 
-            Text(ipLine)
+            ipLine
                 .font(.system(size: 8.5))
-                .foregroundColor(.secondary)
                 .lineLimit(1)
                 .truncationMode(.middle)
 
@@ -364,8 +382,8 @@ private struct NetworkDetail: View {
                             Text(iface.name).font(.system(size: 10, weight: .medium))
                             Spacer()
                             Text(iface.ipv4.isEmpty ? "—" : iface.ipv4)
-                                .font(.system(size: 8.5))
-                                .foregroundColor(.secondary)
+                                .font(.system(size: 8.5, weight: .bold))
+                                .foregroundColor(.primary)
                         }
                         Text("↓\(Fmt.speed(iface.downBytesPerSec)) ↑\(Fmt.speed(iface.upBytesPerSec))")
                             .font(.system(size: 8.5))
@@ -374,6 +392,11 @@ private struct NetworkDetail: View {
                     .padding(.vertical, 2)
                 }
             }
+            Divider()
+            TopProcessList(
+                sample: { ProcessMonitor().topNetworkProcesses() },
+                format: { Fmt.speed($0) }
+            )
         }
     }
 }
@@ -408,21 +431,21 @@ private struct DiskSection: View {
             HStack(spacing: 4) {
                 Image(systemName: "arrow.down.doc")
                     .font(.system(size: 8, weight: .bold))
-                    .foregroundColor(.green)
+                    .foregroundColor(DashColors.diskRead)
                 Text(Fmt.speed(disk.readBytesPerSec))
                     .font(.system(size: 9.5, weight: .medium))
                     .monospacedDigit()
                 Spacer(minLength: 6)
                 Image(systemName: "arrow.up.doc")
                     .font(.system(size: 8, weight: .bold))
-                    .foregroundColor(.pink)
+                    .foregroundColor(DashColors.diskWrite)
                 Text(Fmt.speed(disk.writeBytesPerSec))
                     .font(.system(size: 9.5, weight: .medium))
                     .monospacedDigit()
                 Spacer()
-                Sparkline(values: readHistory, color: .green)
+                Sparkline(values: readHistory, color: DashColors.diskRead)
                     .frame(width: 40, height: 14)
-                Sparkline(values: writeHistory, color: .pink)
+                Sparkline(values: writeHistory, color: DashColors.diskWrite)
                     .frame(width: 40, height: 14)
             }
         }
@@ -467,8 +490,8 @@ private struct DiskDetail: View {
             StatRow(label: "Read", value: Fmt.speed(disk.readBytesPerSec))
             StatRow(label: "Write", value: Fmt.speed(disk.writeBytesPerSec))
             HStack(spacing: 8) {
-                Sparkline(values: readHistory, color: .green).frame(height: 30)
-                Sparkline(values: writeHistory, color: .pink).frame(height: 30)
+                Sparkline(values: readHistory, color: DashColors.diskRead).frame(height: 30)
+                Sparkline(values: writeHistory, color: DashColors.diskWrite).frame(height: 30)
             }
             if disk.volumes.isEmpty {
                 Text("No volumes found").font(DashStyle.labelFont).foregroundColor(.secondary)
@@ -479,6 +502,11 @@ private struct DiskDetail: View {
                     VolumeRow(volume: vol)
                 }
             }
+            Divider()
+            TopProcessList(
+                sample: { ProcessMonitor().topDiskProcesses() },
+                format: { Fmt.speed($0) }
+            )
         }
     }
 }
@@ -591,10 +619,10 @@ private struct PowerSection: View {
     let power: PowerSample
 
     private var levelColor: Color {
-        if power.isCharging { return .green }
-        if power.percentage < 0.2 { return .red }
-        if power.percentage < 0.4 { return .yellow }
-        return .green
+        if power.isCharging { return DashColors.statusGood }
+        if power.percentage < 0.2 { return DashColors.statusCritical }
+        if power.percentage < 0.4 { return DashColors.statusWarning }
+        return DashColors.statusGood
     }
 
     var body: some View {
@@ -606,7 +634,7 @@ private struct PowerSection: View {
                     if power.isCharging {
                         Image(systemName: "bolt.fill")
                             .font(.system(size: 9))
-                            .foregroundColor(.green)
+                            .foregroundColor(DashColors.statusGood)
                     }
                     Text(Fmt.percent(power.percentage))
                         .font(.system(size: 13, weight: .semibold))
