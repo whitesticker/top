@@ -15,11 +15,13 @@ for CPU, GPU, memory, disk, sensors, and battery, all in one compact view.
   jitters as the numbers change)
 - **One-click dashboard**: CPU, GPU, Memory, Network, Disk, Sensors,
   Battery & Power, Date & Time — fits in one view, no scrolling
-- **Click any section for detail** — e.g. the compact view shows CPU/GPU
-  temperature, but clicking "Sensors" opens every individual sensor reading
-  and every fan; clicking "Network" lists every interface, not just the
-  active one
-- **Right-click the icon to quit** — no button cluttering the dashboard
+- **Click any row for detail** — a native cascading submenu, not a popover,
+  so it looks and behaves exactly like a system menu (no anchor arrow); e.g.
+  the compact view shows CPU/GPU temperature, but the "Sensors" submenu
+  shows every individual sensor reading and every fan, and "Network" lists
+  every interface, not just the active one
+- **Quit** lives at the bottom of the same menu — no separate button
+  cluttering the dashboard
 - Minimal footprint: one Swift process, no helper daemons, polls system
   APIs on a 1-second timer
 
@@ -65,9 +67,8 @@ Homebrew cask does this for you automatically.
 ## Usage
 
 - **Click** the menu bar icon to open the dashboard.
-- **Click a section card** (the ones with a `›` chevron) for its full detail
-  in a secondary popover.
-- **Right-click** the icon for the quit menu.
+- **Click a row** for its full detail in a cascading submenu.
+- **Quit** is at the bottom of the same menu.
 
 ## How it works
 
@@ -93,11 +94,13 @@ Sources/top/
 ├── Models.swift              shared data structures for every metric
 ├── Formatters.swift          byte/speed/percent/temp string formatting
 ├── *Monitor.swift            one collector per category
+├── ProcessMonitor.swift      on-demand top-process lookups per resource
 ├── SystemMonitor.swift       central polling loop + history buffers
-├── StatusItemController.swift  menu bar icon + popover lifecycle
+├── StatusItemController.swift  menu bar icon + native NSMenu lifecycle
 ├── NetworkIconRenderer.swift  draws the live ↑/↓ menu bar icon
-├── DashboardView.swift       the SwiftUI dashboard
-└── Components.swift          shared dashboard UI pieces (cards, sparklines, gauges)
+├── MenuRows.swift            per-metric rows + their cascading detail submenus
+├── DashboardView.swift       shared detail views + card content
+└── Components.swift          shared UI pieces (cards, sparklines, gauges)
 ```
 
 ## Contributing
