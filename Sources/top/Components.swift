@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 // MARK: - Shared visual constants
 
@@ -317,6 +318,46 @@ struct TopProcessList: View {
             let result = await Task.detached(priority: .utility, operation: sample).value
             processes = result
             loaded = true
+        }
+    }
+}
+
+/// An IP address, click-to-copy with brief "copied" feedback -- the IP is
+/// usually the one thing in this app someone actually wants to paste
+/// somewhere else. `prefix` is shown in secondary style before the bolded
+/// IP itself (e.g. "en0 · "); pass "" for none.
+struct CopyableIPText: View {
+    var prefix: String = ""
+    var ip: String
+    var font: Font = .system(size: 8.5)
+
+    @State private var copied = false
+
+    private var isCopyable: Bool {
+        !ip.isEmpty && ip != "—"
+    }
+
+    var body: some View {
+        HStack(spacing: 3) {
+            (Text(prefix).foregroundColor(.secondary)
+                + Text(ip).fontWeight(.bold).foregroundColor(.primary))
+                .font(font)
+            if copied {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundColor(DashColors.statusGood)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard isCopyable else { return }
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(ip, forType: .string)
+            copied = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                copied = false
+            }
         }
     }
 }

@@ -5,8 +5,8 @@ import Combine
 // Owns the NSStatusItem: keeps the menu bar icon in sync with the latest
 // network speeds, and shows the dashboard as a genuine NSMenu (not an
 // NSPopover) -- one row per metric, each a real NSMenuItem with a native
-// `.submenu` for its detail view, plus a trailing Quit item. This is the
-// same shape as system status menus like Bluetooth's device list: a
+// `.submenu` for its detail view, plus a trailing Preferences/Quit. This is
+// the same shape as system status menus like Bluetooth's device list: a
 // vertical list of rows, each cascading into its own submenu with no
 // anchor arrow anywhere, and immune to Mission Control's window-gathering
 // animation the way a real NSPopover window never is. See MenuRows.swift
@@ -24,13 +24,22 @@ import Combine
 // reused for the app's lifetime; it is never rebuilt/re-added on each
 // click. Rebuilding a SwiftUI-backed NSMenuItem repeatedly is a known
 // source of memory leaks (FB7539293) -- reusing one instance and letting
-// its own @Published state drive updates avoids that entirely.
+// its own @Published state drive updates avoids that entirely. Metric rows
+// are user-reorderable/hideable (see Preferences.swift): each row's
+// NSMenuItem is still built exactly once, kept in `rowItems`, and
+// `applyRowOrder()` just removes/re-inserts those *existing* items into
+// `menu` in the configured order -- never recreates a hosting view.
 final class StatusItemController: NSObject, NSMenuDelegate {
     private let statusItem: NSStatusItem
     private let monitor: SystemMonitor
+    private let menu = NSMenu()
     private var rowHostingViews: [NSHostingView<AnyView>] = []
     private var detailSubmenus: [DetailSubmenu] = []
+    private var rowItems: [MetricRow: NSMenuItem] = [:]
+    private var rowInsertionIndex = 0
     private var cancellable: AnyCancellable?
+    private var preferencesCancellable: AnyCancellable?
+    private var preferencesWindowController: PreferencesWindowController?
 
     init(monitor: SystemMonitor) {
         self.monitor = monitor
@@ -38,42 +47,54 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         super.init()
 
-        let menu = NSMenu()
         menu.delegate = self
 
         // Leading separator absorbs NSMenu's own top-inset chrome (its
         // rounded-corner chrome otherwise clips the top of the first row).
         menu.addItem(.separator())
-
-        addRow(to: menu, view: DateRow().environmentObject(monitor))
+        menu.addItem(plainRow(DateRow().environmentObject(monitor)))
         menu.addItem(.separator())
+        // Metric rows are inserted here by applyRowOrder(); this index
+        // never moves since nothing before it ever changes.
+        rowInsertionIndex = menu.items.count
 
-        addRow(to: menu, view: CPURow().environmentObject(monitor)) {
+        rowItems[.cpu] = detailRow(CPURow().environmentObject(monitor)) {
             CPUDetailStandalone().environmentObject(monitor)
         }
-        addRow(to: menu, view: GPURow().environmentObject(monitor)) {
+        rowItems[.gpu] = detailRow(GPURow().environmentObject(monitor)) {
             GPUDetailStandalone().environmentObject(monitor)
         }
-        addRow(to: menu, view: MemoryRow().environmentObject(monitor)) {
+        rowItems[.memory] = detailRow(MemoryRow().environmentObject(monitor)) {
             MemoryDetailStandalone().environmentObject(monitor)
         }
-        addRow(to: menu, view: NetworkRow().environmentObject(monitor)) {
+        rowItems[.network] = detailRow(NetworkRow().environmentObject(monitor)) {
             NetworkDetailStandalone().environmentObject(monitor)
         }
-        addRow(to: menu, view: DiskRow().environmentObject(monitor)) {
+        rowItems[.disk] = detailRow(DiskRow().environmentObject(monitor)) {
             DiskDetailStandalone().environmentObject(monitor)
         }
-        addRow(to: menu, view: SensorsRow().environmentObject(monitor)) {
+        rowItems[.sensors] = detailRow(SensorsRow().environmentObject(monitor)) {
             SensorsDetailStandalone().environmentObject(monitor)
         }
-        addRow(to: menu, view: PowerRow().environmentObject(monitor)) {
+        rowItems[.battery] = detailRow(PowerRow().environmentObject(monitor)) {
             PowerDetailStandalone().environmentObject(monitor)
         }
+
+        menu.addItem(.separator())
+        let prefsItem = NSMenuItem(title: "Preferences…", action: #selector(showPreferences), keyEquivalent: ",")
+        prefsItem.target = self
+        menu.addItem(prefsItem)
 
         menu.addItem(.separator())
         let quitItem = NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q")
         quitItem.target = self
         menu.addItem(quitItem)
+
+        applyRowOrder()
+        preferencesCancellable = PreferencesStore.shared.$rowOrder
+            .combineLatest(PreferencesStore.shared.$hiddenRows)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _, _ in self?.applyRowOrder() }
 
         statusItem.menu = menu
 
@@ -89,8 +110,8 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         updateIcon(monitor.snapshot.network)
     }
 
-    /// Adds a plain row (no submenu) -- used only for the date/time row.
-    private func addRow<V: View>(to menu: NSMenu, view: V) {
+    /// Builds a plain row (no submenu) -- used only for the date/time row.
+    private func plainRow<V: View>(_ view: V) -> NSMenuItem {
         let hosting = NSHostingView(rootView: AnyView(view))
         hosting.frame = NSRect(x: 0, y: 0, width: 300, height: 100)
         warmUp(hosting)
@@ -98,24 +119,28 @@ final class StatusItemController: NSObject, NSMenuDelegate {
 
         let item = NSMenuItem()
         item.view = hosting
-        menu.addItem(item)
+        return item
     }
 
-    /// Adds a row with a native cascading `.submenu` for its detail view.
-    private func addRow<V: View, D: View>(to menu: NSMenu, view: V, @ViewBuilder detail: @escaping () -> D) {
-        let hosting = NSHostingView(rootView: AnyView(view))
-        hosting.frame = NSRect(x: 0, y: 0, width: 300, height: 100)
-        warmUp(hosting)
-        rowHostingViews.append(hosting)
-
-        let item = NSMenuItem()
-        item.view = hosting
-
+    /// Builds a row with a native cascading `.submenu` for its detail view.
+    private func detailRow<V: View, D: View>(_ view: V, @ViewBuilder detail: @escaping () -> D) -> NSMenuItem {
+        let item = plainRow(view)
         let submenu = DetailSubmenu(content: detail)
         detailSubmenus.append(submenu)
         item.submenu = submenu.menu
+        return item
+    }
 
-        menu.addItem(item)
+    // Re-inserts the (already-built, never-recreated) metric row items into
+    // `menu` in whatever order/visibility Preferences currently specifies.
+    private func applyRowOrder() {
+        for item in rowItems.values where menu.items.contains(item) {
+            menu.removeItem(item)
+        }
+        for (offset, row) in PreferencesStore.shared.visibleRowsInOrder.enumerated() {
+            guard let item = rowItems[row] else { continue }
+            menu.insertItem(item, at: rowInsertionIndex + offset)
+        }
     }
 
     // Forces one real SwiftUI layout pass immediately (via a throwaway
@@ -141,10 +166,22 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     }
 
     // Refines every row's frame to its real SwiftUI-measured size right
-    // before the menu displays -- at construction time, SwiftUI hasn't
-    // laid any of them out yet, so their `fittingSize` would be wrong.
+    // before the menu displays. `layoutSubtreeIfNeeded()` matters here, not
+    // just at construction: several rows render entirely different content
+    // depending on live data (e.g. Battery's "no battery" one-liner vs. its
+    // full percentage+bar+stat-grid layout once real PowerMonitor data
+    // arrives; same for GPU's "n/a" fallback). `StatusItemController` is
+    // built *before* `monitor.start()` runs, so `warmUp()`'s very first
+    // measurement can bake in the shorter placeholder branch's size. Without
+    // forcing a fresh layout pass here too, `fittingSize` can keep reporting
+    // that stale (too-short) measurement for the first several opens, until
+    // SwiftUI's own async update pipeline happens to catch up on its own --
+    // matching the reported "battery tile doesn't load right the first
+    // couple times" bug. Forcing layout before every measurement, not just
+    // the first, makes every open correct instead of relying on that race.
     func menuWillOpen(_ menu: NSMenu) {
         for hosting in rowHostingViews {
+            hosting.layoutSubtreeIfNeeded()
             let fitting = hosting.fittingSize
             guard fitting.height > 0 else { continue }
             hosting.frame = NSRect(origin: .zero, size: fitting)
@@ -154,6 +191,15 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     private func updateIcon(_ net: NetworkSample) {
         statusItem.button?.image = NetworkIconRenderer.render(
             up: net.upBytesPerSec, down: net.downBytesPerSec)
+    }
+
+    @objc private func showPreferences() {
+        if preferencesWindowController == nil {
+            preferencesWindowController = PreferencesWindowController()
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        preferencesWindowController?.showWindow(nil)
+        preferencesWindowController?.window?.makeKeyAndOrderFront(nil)
     }
 
     @objc private func quit() {

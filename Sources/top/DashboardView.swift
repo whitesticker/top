@@ -381,9 +381,7 @@ struct NetworkDetail: View {
                         HStack {
                             Text(iface.name).font(.system(size: 10, weight: .medium))
                             Spacer()
-                            Text(iface.ipv4.isEmpty ? "—" : iface.ipv4)
-                                .font(.system(size: 8.5, weight: .bold))
-                                .foregroundColor(.primary)
+                            CopyableIPText(ip: iface.ipv4.isEmpty ? "—" : iface.ipv4)
                         }
                         Text("↓\(Fmt.speed(iface.downBytesPerSec)) ↑\(Fmt.speed(iface.upBytesPerSec))")
                             .font(.system(size: 8.5))

@@ -239,13 +239,6 @@ struct MemoryDetailStandalone: View {
 struct NetworkRow: View {
     @EnvironmentObject var monitor: SystemMonitor
 
-    private func ipLine(_ network: NetworkSample) -> Text {
-        let iface = network.primaryInterface.isEmpty ? "—" : network.primaryInterface
-        let ip = network.primaryIP.isEmpty ? "—" : network.primaryIP
-        return Text("\(iface) · ").foregroundColor(.secondary)
-            + Text(ip).fontWeight(.bold).foregroundColor(.primary)
-    }
-
     var body: some View {
         let network = monitor.snapshot.network
         MenuRow(title: "Network", systemImage: "network") {
@@ -278,10 +271,13 @@ struct NetworkRow: View {
                 }
             }
 
-            ipLine(network)
-                .font(.system(size: 9))
-                .lineLimit(1)
-                .truncationMode(.middle)
+            CopyableIPText(
+                prefix: "\(network.primaryInterface.isEmpty ? "—" : network.primaryInterface) · ",
+                ip: network.primaryIP.isEmpty ? "—" : network.primaryIP,
+                font: .system(size: 9)
+            )
+            .lineLimit(1)
+            .truncationMode(.middle)
 
             Text("↓\(Fmt.bytes(network.sessionDown)) ↑\(Fmt.bytes(network.sessionUp)) session")
                 .font(.system(size: 9))
@@ -512,6 +508,12 @@ final class DetailSubmenu: NSObject, NSMenuDelegate {
     }
 
     func menuWillOpen(_ menu: NSMenu) {
+        // Force a fresh layout pass before measuring, not just at
+        // construction -- content that branches on live data (e.g. a
+        // detail view's "no data yet" vs. real fallback) can otherwise
+        // keep reporting a stale `fittingSize` for the first several opens.
+        // See StatusItemController.menuWillOpen for the full explanation.
+        hostingView.layoutSubtreeIfNeeded()
         let fitting = hostingView.fittingSize
         guard fitting.height > 0 else { return }
         hostingView.frame = NSRect(origin: .zero, size: fitting)
