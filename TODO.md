@@ -6,39 +6,43 @@ Make `top` available as a Notification Center / desktop widget, not just a
 menu bar dropdown. **Decided: a real WidgetKit widget** (not a fake
 floating-panel substitute).
 
-Status: blocked on Xcode. This machine currently has only the Command Line
-Tools installed — `xcodebuild` refuses to build app-extension targets
-(entitlements, provisioning, code signing between host app + extension)
-without the full Xcode.app. Getting Xcode requires signing in with an
-Apple ID (App Store or developer.apple.com), but it can be a completely
-free one — no paid Apple Developer Program membership needed for local
-development/signing/App Groups on your own Mac; paid membership only
-matters for notarized distribution outside this machine (same situation
-`top.app` is already in today — ad-hoc signed, not notarized).
+**Status: built and installed.** Xcode is set up (personal team
+"XXA24FWXDW", local development certificate regenerated after the original
+had no matching private key locally). `xcodegen` generates `top.xcodeproj`
+from `project.yml` -- two targets:
 
-**Next step**: user is installing Xcode. Once it's ready, come back here —
-don't generate the `.xcodeproj`/widget target beforehand, since none of it
-can be built or verified without Xcode present, and getting the project
-file structure right on the first guess is unlikely.
+- `top` -- the existing menu bar app (unchanged behavior), now also
+  writing its snapshot to an App Group container every 5s
+  (`SharedSnapshotStore.save`, called from `SystemMonitor.poll()`).
+- `TopWidgetExtension` -- sandboxed WidgetKit extension embedded in
+  `top.app/Contents/PlugIns/`. Reads the shared snapshot
+  (`SharedSnapshotStore.load`) via `SnapshotProvider`. Ships 8 widgets in
+  one `TopWidgetBundle`: CPU/GPU/Memory/Network/Disk/Sensors/Battery
+  (small + medium) plus one large "System Overview" combining all seven.
 
-Plan once Xcode is available:
-1. Create an Xcode project with two targets: the existing menu bar app,
-   and a new WidgetKit extension.
-2. Add an App Group entitlement to both targets so they can share data —
-   widgets run in their own process and can't read the menu bar app's
-   in-memory `SystemMonitor` state directly.
-3. Have the main app periodically write its latest snapshot somewhere the
-   widget can read (e.g. shared `UserDefaults(suiteName:)` in the App
-   Group container, or a small JSON file there).
-4. Build the widget's `TimelineProvider`, reading that shared snapshot.
-   Note: WidgetKit budgets refresh frequency (minutes, not seconds) — the
-   widget will always show slightly-stale data, not the live 1s view the
-   menu bar dropdown has. Decide what subset of metrics fit a widget's
-   small/medium/large sizes.
-5. Decide how `build.sh` and the existing manual build flow relate to the
-   new Xcode project (likely: `build.sh` retired in favor of `xcodebuild`,
-   or kept only for quick CLI iteration on the main app while the widget
-   requires the full project).
+Both targets share `Models.swift`, `Formatters.swift`, and
+`SharedSnapshotStore.swift` directly from `Sources/top/` (added to both
+target memberships in `project.yml`, not duplicated) -- they only import
+Foundation, so no AppKit-only code leaks into the sandboxed widget.
+
+Verified: `xcodebuild -project top.xcodeproj -scheme top -allowProvisioningUpdates build`
+succeeds, both targets sign correctly with matching App Group
+(`group.com.local.top`) and team ID, and `pluginkit -m` shows
+`com.local.top.TopWidgetExtension` registered with the system after
+launching `/Applications/top.app`.
+
+**Not yet verified**: actually adding a widget via the Notification
+Center/desktop widget gallery and confirming it renders real (non-nil)
+data -- needs a human to check System Settings/desktop "Edit Widgets" UI,
+not something drivable headlessly.
+
+Known permanent limitation (not a bug): WidgetKit's own refresh budget is
+coarse (minutes), so the widget will always lag behind the menu bar
+dropdown's live 1s updates.
+
+`build.sh`/`swift build` (SPM) still work unchanged for quick CLI
+iteration on the main app alone -- the Xcode project is only needed when
+the widget target is involved.
 
 ## App icon
 

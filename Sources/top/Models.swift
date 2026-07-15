@@ -4,7 +4,7 @@ import Foundation
 //
 // One immutable snapshot of every metric at a single instant. The
 // SystemMonitor produces one of these per tick and publishes it to the UI.
-struct SystemSnapshot {
+struct SystemSnapshot: Codable {
     var cpu = CPUSample()
     var gpu = GPUSample()
     var memory = MemorySample()
@@ -16,7 +16,7 @@ struct SystemSnapshot {
 }
 
 // MARK: - CPU
-struct CPUSample {
+struct CPUSample: Codable {
     var totalUsage: Double = 0        // 0...1  (user + system)
     var user: Double = 0              // 0...1
     var system: Double = 0           // 0...1
@@ -32,14 +32,14 @@ struct CPUSample {
 }
 
 // MARK: - GPU
-struct GPUSample {
+struct GPUSample: Codable {
     var available: Bool = false
     var name: String = ""
     var utilization: Double = 0      // 0...1 device utilization
 }
 
 // MARK: - Memory
-struct MemorySample {
+struct MemorySample: Codable {
     var total: UInt64 = 0            // bytes of physical RAM
     var used: UInt64 = 0            // bytes considered "used" (total - free - purgeable)
     var app: UInt64 = 0            // app memory
@@ -54,7 +54,7 @@ struct MemorySample {
 }
 
 // MARK: - Network
-struct NetworkInterfaceSample {
+struct NetworkInterfaceSample: Codable {
     var name: String = ""
     var displayName: String = ""
     var upBytesPerSec: Double = 0
@@ -62,7 +62,7 @@ struct NetworkInterfaceSample {
     var ipv4: String = ""
 }
 
-struct NetworkSample {
+struct NetworkSample: Codable {
     var upBytesPerSec: Double = 0        // aggregate over active interfaces (icon value)
     var downBytesPerSec: Double = 0
     var totalUp: UInt64 = 0              // cumulative bytes since boot
@@ -75,7 +75,7 @@ struct NetworkSample {
 }
 
 // MARK: - Disk
-struct DiskVolumeSample {
+struct DiskVolumeSample: Codable {
     var name: String = ""
     var mountPoint: String = ""
     var total: UInt64 = 0
@@ -84,7 +84,7 @@ struct DiskVolumeSample {
     var isInternal: Bool = true
 }
 
-struct DiskSample {
+struct DiskSample: Codable {
     var volumes: [DiskVolumeSample] = []
     var readBytesPerSec: Double = 0
     var writeBytesPerSec: Double = 0
@@ -93,19 +93,19 @@ struct DiskSample {
 }
 
 // MARK: - Sensors
-struct TemperatureSample {
+struct TemperatureSample: Codable {
     var label: String = ""
     var celsius: Double = 0
 }
 
-struct FanSample {
+struct FanSample: Codable {
     var label: String = ""
     var rpm: Double = 0
     var minRPM: Double = 0
     var maxRPM: Double = 0
 }
 
-struct SensorSample {
+struct SensorSample: Codable {
     var temperatures: [TemperatureSample] = []
     var fans: [FanSample] = []
     var cpuTemp: Double = 0           // best-effort representative CPU die temp, °C
@@ -113,7 +113,7 @@ struct SensorSample {
 }
 
 // MARK: - Power / Battery
-struct PowerSample {
+struct PowerSample: Codable {
     var hasBattery: Bool = false
     var percentage: Double = 0        // 0...1
     var isCharging: Bool = false

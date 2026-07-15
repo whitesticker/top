@@ -5,3 +5,5 @@ build/
 .claude/
 *.o
 *.swiftmodule
+xcuserdata/
+*.xcuserstate

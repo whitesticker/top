@@ -1,0 +1,53 @@
+name: top
+options:
+  bundleIdPrefix: com.local
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: XXA24FWXDW
+    ENABLE_HARDENED_RUNTIME: NO
+
+targets:
+  top:
+    type: application
+    platform: macOS
+    deploymentTarget: "13.0"
+    sources:
+      - path: Sources/top
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.local.top
+        PRODUCT_NAME: top
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: top
+        INFOPLIST_KEY_LSUIElement: YES
+        INFOPLIST_KEY_NSHumanReadableCopyright: "Local build"
+        MARKETING_VERSION: "0.2.0"
+        CURRENT_PROJECT_VERSION: "1"
+        CODE_SIGN_ENTITLEMENTS: Sources/top/top.entitlements
+    dependencies:
+      - target: TopWidgetExtension
+        embed: true
+        codeSign: true
+
+  TopWidgetExtension:
+    type: app-extension
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: TopWidget
+      - path: Sources/top/Models.swift
+      - path: Sources/top/Formatters.swift
+      - path: Sources/top/SharedSnapshotStore.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.local.top.TopWidgetExtension
+        PRODUCT_NAME: TopWidgetExtension
+        INFOPLIST_FILE: TopWidget/Info.plist
+        MARKETING_VERSION: "0.2.0"
+        CURRENT_PROJECT_VERSION: "1"
+        CODE_SIGN_ENTITLEMENTS: TopWidget/TopWidgetExtension.entitlements
+        SKIP_INSTALL: YES

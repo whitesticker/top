@@ -78,6 +78,13 @@ final class SystemMonitor: ObservableObject {
         let dr = snap.disk.readBytesPerSec
         let dw = snap.disk.writeBytesPerSec
 
+        // Widgets read this via the App Group container, not the live
+        // in-process @Published snapshot (they run in a separate process).
+        // Throttled to every 5s: WidgetKit's own refresh budget is coarse
+        // (minutes, not seconds), so writing every 1s tick would just be
+        // wasted disk I/O for data nothing reads that often.
+        if tick % 5 == 0 { SharedSnapshotStore.save(snap) }
+
         DispatchQueue.main.async {
             self.snapshot = snap
             self.push(&self.cpuHistory, cpuV)
