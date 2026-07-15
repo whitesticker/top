@@ -43,6 +43,15 @@ final class SystemMonitor: ObservableObject {
     private var lastSensors = SensorSample()
     private var lastPower = PowerSample()
 
+    // Short history tail confined to the background `queue` (poll() always
+    // runs there), fed into every snapshot for the widget's sparklines --
+    // separate from the @Published `*History` arrays above, which are
+    // longer and only ever touched on the main thread.
+    private var widgetCPUHistory: [Double] = []
+    private var widgetNetDownHistory: [Double] = []
+    private var widgetNetUpHistory: [Double] = []
+    private let widgetHistoryLength = 16
+
     private init() {}
 
     func start() {
@@ -78,12 +87,22 @@ final class SystemMonitor: ObservableObject {
         let dr = snap.disk.readBytesPerSec
         let dw = snap.disk.writeBytesPerSec
 
+        pushCapped(&widgetCPUHistory, cpuV, cap: widgetHistoryLength)
+        pushCapped(&widgetNetDownHistory, down, cap: widgetHistoryLength)
+        pushCapped(&widgetNetUpHistory, up, cap: widgetHistoryLength)
+        snap.widgetHistory = WidgetHistory(
+            cpu: widgetCPUHistory,
+            netDown: widgetNetDownHistory,
+            netUp: widgetNetUpHistory
+        )
+
         // Widgets read this via the App Group container, not the live
         // in-process @Published snapshot (they run in a separate process).
-        // Throttled to every 5s: WidgetKit's own refresh budget is coarse
-        // (minutes, not seconds), so writing every 1s tick would just be
-        // wasted disk I/O for data nothing reads that often.
-        if tick % 5 == 0 { SharedSnapshotStore.save(snap) }
+        // Written every tick (1s), matching exelban/stats' per-second
+        // module cadence -- WidgetKit's actual refresh rate is still gated
+        // by system-level visibility budgeting, but there's no reason to
+        // be the bottleneck below whatever that allows.
+        SharedSnapshotStore.save(snap)
 
         DispatchQueue.main.async {
             self.snapshot = snap
@@ -101,6 +120,13 @@ final class SystemMonitor: ObservableObject {
         arr.append(v)
         if arr.count > historyLength {
             arr.removeFirst(arr.count - historyLength)
+        }
+    }
+
+    private func pushCapped(_ arr: inout [Double], _ v: Double, cap: Int) {
+        arr.append(v)
+        if arr.count > cap {
+            arr.removeFirst(arr.count - cap)
         }
     }
 }

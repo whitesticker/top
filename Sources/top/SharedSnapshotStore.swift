@@ -29,7 +29,20 @@ import WidgetKit
 // "TopWidgetExtension" target (see project.yml) -- it only depends on
 // Foundation and Models.swift, both already shared the same way.
 enum SharedSnapshotStore {
-    static let appGroupID = "group.com.local.top"
+    // Must match the App Group identifier in both targets' entitlements:
+    // "$(TeamIdentifierPrefix)com.local.top.widgets". That prefix resolves
+    // to the team ID at codesign time, so at runtime we reconstruct the
+    // same string from a literal "TeamId" key each target's Info.plist
+    // carries (see project.yml / TopWidget/Info.plist). A plain
+    // "group.com.local.top" identifier (no team prefix) looked valid in
+    // entitlements but never actually worked for cross-process sharing
+    // under this personal-team automatic-signing setup.
+    static let appGroupID: String = {
+        guard let teamId = Bundle.main.object(forInfoDictionaryKey: "TeamId") as? String else {
+            return "com.local.top.widgets"
+        }
+        return "\(teamId).com.local.top.widgets"
+    }()
     private static let key = "latestSnapshot"
     private static let log = Logger(subsystem: "com.local.top", category: "SharedSnapshotStore")
 
@@ -37,19 +50,22 @@ enum SharedSnapshotStore {
         UserDefaults(suiteName: appGroupID)
     }
 
-    // WidgetKit doesn't poll -- without an explicit nudge, a widget only
-    // re-reads shared data on its own budgeted schedule (or whenever it
-    // happens to relaunch). That's what caused "the widget isn't working":
-    // its very first read raced ahead of the main app's first write and
-    // cached an empty result, then had no reason to look again for
-    // several minutes. `WidgetCenter.reloadAllTimelines()` asks WidgetKit
-    // to re-query right away, but the system also rate-limits how often
-    // reload requests are honored, so this is throttled to once a minute
-    // rather than called on every 5s save -- calling it that often would
-    // burn through that budget for no benefit (the widget's own timeline
-    // policy already caps effective refreshes to a few minutes anyway).
+    // Turns out WidgetKit's reload budget is generous for a *visible*
+    // widget (Desktop-placed, or an open Notification Center) -- the
+    // exelban/stats reference app calls reloadTimelines() on essentially
+    // every 1s module tick and its widgets stay live. The "budget
+    // exhausted" theory from the previous version of this comment was
+    // half right: throttling to once a minute (or once per 15 minutes)
+    // didn't fix stale widgets because the actual gate is visibility, not
+    // call frequency -- a widget sitting in a *closed* Notification Center
+    // is treated as not-visible and barely refreshes no matter how often
+    // reloadAllTimelines() is called. So: request a reload on every save
+    // (matching stats' per-tick pattern) and rely on the system's own
+    // visibility-based throttling rather than self-imposing one. For a
+    // near-continuous refresh, place the widget on the Desktop rather than
+    // (or in addition to) Notification Center.
     private static var lastReloadRequest = Date.distantPast
-    private static let reloadInterval: TimeInterval = 60
+    private static let minReloadGap: TimeInterval = 1
 
     /// Called by the main app after every poll. Silently does nothing if
     /// the App Group suite isn't available (e.g. entitlement missing
@@ -68,7 +84,7 @@ enum SharedSnapshotStore {
         log.notice("save: wrote \(data.count) bytes")
 
         let now = Date()
-        if now.timeIntervalSince(lastReloadRequest) > reloadInterval {
+        if now.timeIntervalSince(lastReloadRequest) > minReloadGap {
             lastReloadRequest = now
             log.notice("save: requesting WidgetCenter.reloadAllTimelines()")
             WidgetCenter.shared.reloadAllTimelines()
@@ -89,7 +105,9 @@ enum SharedSnapshotStore {
             return nil
         }
         do {
-            return try JSONDecoder().decode(SystemSnapshot.self, from: data)
+            let snapshot = try JSONDecoder().decode(SystemSnapshot.self, from: data)
+            log.notice("load: succeeded, \(data.count) bytes")
+            return snapshot
         } catch {
             log.error("load: decode failed: \(String(describing: error), privacy: .public)")
             return nil

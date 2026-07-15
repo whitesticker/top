@@ -21,13 +21,11 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.local.top
         PRODUCT_NAME: top
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: top
-        INFOPLIST_KEY_LSUIElement: YES
-        INFOPLIST_KEY_NSHumanReadableCopyright: "Local build"
+        INFOPLIST_FILE: Sources/top/Info.plist
         MARKETING_VERSION: "0.2.0"
         CURRENT_PROJECT_VERSION: "1"
         CODE_SIGN_ENTITLEMENTS: Sources/top/top.entitlements
+        ENABLE_DEBUG_DYLIB: YES
     dependencies:
       - target: TopWidgetExtension
         embed: true
@@ -42,6 +40,7 @@ targets:
       - path: Sources/top/Models.swift
       - path: Sources/top/Formatters.swift
       - path: Sources/top/SharedSnapshotStore.swift
+      - path: Sources/top/DashColors.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.local.top.TopWidgetExtension

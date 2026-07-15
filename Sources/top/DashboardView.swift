@@ -246,10 +246,10 @@ private struct MemorySection: View {
                     .frame(width: 34, height: 34)
 
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("\(Fmt.bytes(memory.used)) /")
+                    Text("\(Fmt.bytesBinary(memory.used)) /")
                         .font(.system(size: 10, weight: .semibold))
                         .monospacedDigit()
-                    Text(Fmt.bytes(memory.total))
+                    Text(Fmt.bytesBinary(memory.total))
                         .font(.system(size: 10, weight: .semibold))
                         .monospacedDigit()
                 }
@@ -257,10 +257,10 @@ private struct MemorySection: View {
             }
 
             StatGrid2x2(items: [
-                ("App", Fmt.bytes(memory.app)),
-                ("Wired", Fmt.bytes(memory.wired)),
-                ("Compressed", Fmt.bytes(memory.compressed)),
-                ("Cached", Fmt.bytes(memory.cached)),
+                ("App", Fmt.bytesBinary(memory.app)),
+                ("Wired", Fmt.bytesBinary(memory.wired)),
+                ("Compressed", Fmt.bytesBinary(memory.compressed)),
+                ("Cached", Fmt.bytesBinary(memory.cached)),
             ])
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -274,24 +274,24 @@ struct MemoryDetail: View {
 
     var body: some View {
         DetailPanel(title: "Memory", systemImage: "memorychip") {
-            StatRow(label: "Used", value: Fmt.bytes(memory.used))
-            StatRow(label: "Total", value: Fmt.bytes(memory.total))
+            StatRow(label: "Used", value: Fmt.bytesBinary(memory.used))
+            StatRow(label: "Total", value: Fmt.bytesBinary(memory.total))
             StatRow(label: "Pressure", value: Fmt.percent(memory.pressure), valueColor: pressureColor)
             Sparkline(values: history, maxValue: 1.0, color: pressureColor)
                 .frame(height: 40)
             Divider()
-            StatRow(label: "App", value: Fmt.bytes(memory.app))
-            StatRow(label: "Wired", value: Fmt.bytes(memory.wired))
-            StatRow(label: "Compressed", value: Fmt.bytes(memory.compressed))
-            StatRow(label: "Cached", value: Fmt.bytes(memory.cached))
-            StatRow(label: "Free", value: Fmt.bytes(memory.free))
+            StatRow(label: "App", value: Fmt.bytesBinary(memory.app))
+            StatRow(label: "Wired", value: Fmt.bytesBinary(memory.wired))
+            StatRow(label: "Compressed", value: Fmt.bytesBinary(memory.compressed))
+            StatRow(label: "Cached", value: Fmt.bytesBinary(memory.cached))
+            StatRow(label: "Free", value: Fmt.bytesBinary(memory.free))
             Divider()
-            StatRow(label: "Swap used", value: Fmt.bytes(memory.swapUsed))
-            StatRow(label: "Swap total", value: Fmt.bytes(memory.swapTotal))
+            StatRow(label: "Swap used", value: Fmt.bytesBinary(memory.swapUsed))
+            StatRow(label: "Swap total", value: Fmt.bytesBinary(memory.swapTotal))
             Divider()
             TopProcessList(
                 sample: { ProcessMonitor().topMemoryProcesses() },
-                format: { Fmt.bytes($0) }
+                format: { Fmt.bytesBinary($0) }
             )
         }
     }

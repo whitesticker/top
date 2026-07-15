@@ -24,6 +24,29 @@ enum Fmt {
         bytes(bytesPerSec) + "/s"
     }
 
+    // "48 GB" -- base-1024 (binary), matching Activity Monitor's convention
+    // for RAM specifically (unlike disk/network, which use decimal like
+    // Finder). RAM capacity is manufactured/reported in binary GiB even
+    // though labeled "GB", so `ProcessInfo.physicalMemory`'s raw byte count
+    // for e.g. 48 GB of RAM is 48 * 1024^3 -- formatting that with the
+    // decimal `bytes()` above would print "51.5 GB" and not match what the
+    // user knows their machine has installed.
+    static func bytesBinary(_ value: UInt64) -> String {
+        bytesBinary(Double(value))
+    }
+
+    static func bytesBinary(_ value: Double) -> String {
+        let units = ["B", "KB", "MB", "GB", "TB", "PB"]
+        var v = max(value, 0)
+        var i = 0
+        while v >= 1024 && i < units.count - 1 {
+            v /= 1024
+            i += 1
+        }
+        if i == 0 { return "\(Int(v)) \(units[i])" }
+        return String(format: v >= 100 ? "%.0f %@" : "%.1f %@", v, units[i])
+    }
+
     // Compact speed for the tight menu bar (value + single-letter unit),
     // returned as (number, unit) so the caller can align them.
     static func speedCompact(_ bytesPerSec: Double) -> (String, String) {

@@ -11,9 +11,11 @@
 		224ACB549BD5790987493F32 /* MetricDualWidgetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 960BCADF77CC44C35D2116DE /* MetricDualWidgetView.swift */; };
 		260BF0BAD76394925924CA25 /* DiskMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BBB0DC5B19F533CACF69283 /* DiskMonitor.swift */; };
 		29B1782D2376FAA273B69F36 /* NetworkIconRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78D62499B6BA1034CD95591A /* NetworkIconRenderer.swift */; };
+		2AC99AF5F09AEBFD4D330823 /* WidgetComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76152BC2A621C0E429B901A3 /* WidgetComponents.swift */; };
 		2B626558F2403094B229FF1D /* SharedSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C055A166B62F7713FBF1E06C /* SharedSnapshotStore.swift */; };
 		30C431E8E9DC52190C25CF55 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = B374ADDFC17D27B57235CCDB /* main.swift */; };
 		318E469AD23662C5C4773AC2 /* SystemMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9078945433D78022949CAD01 /* SystemMonitor.swift */; };
+		3CFA85C0C956F420AC0C7F3B /* DashColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4B1B22BF72BE2DA2767C1C8 /* DashColors.swift */; };
 		461FB12EE092EF612B819C9A /* GPUMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8EF64D11133CEAE0E6B02F9 /* GPUMonitor.swift */; };
 		5010536F2A4EAB72B2DB05AF /* SharedSnapshotStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C055A166B62F7713FBF1E06C /* SharedSnapshotStore.swift */; };
 		51E4A85018D9E5C674F76518 /* Provider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCCA8C136BFFD099F2A86CC5 /* Provider.swift */; };
@@ -21,6 +23,7 @@
 		7F7776A2A1D6A505527F48FE /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDF10A472263F4D3A14D66D7 /* Formatters.swift */; };
 		8461149EFD72A7941C97DB60 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDF10A472263F4D3A14D66D7 /* Formatters.swift */; };
 		8549824797D74F4C576F4C88 /* MemoryMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7DAD11A8C9B17BEE05AF6F7 /* MemoryMonitor.swift */; };
+		8C0D780C0FACE27EB0907316 /* DashColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4B1B22BF72BE2DA2767C1C8 /* DashColors.swift */; };
 		9C993192D67AD405746BDB6B /* SensorMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6996275C958D23FEEF5F53F /* SensorMonitor.swift */; };
 		A901FF7B11CE4C0D8C701BA7 /* TopWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 5A1B9BBA0EE3DC9DF3352E78 /* TopWidgetExtension.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		B54E4FA2F55908F8A15907C3 /* ProcessMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 559281EA11322D2F14E3E2E0 /* ProcessMonitor.swift */; };
@@ -78,6 +81,7 @@
 		56FEA33356055F3B19B5DC15 /* TopWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopWidgetBundle.swift; sourceTree = "<group>"; };
 		5A1B9BBA0EE3DC9DF3352E78 /* TopWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = TopWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		6135B3B930A0926CD2C71C3B /* PowerMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PowerMonitor.swift; sourceTree = "<group>"; };
+		76152BC2A621C0E429B901A3 /* WidgetComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetComponents.swift; sourceTree = "<group>"; };
 		78D62499B6BA1034CD95591A /* NetworkIconRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkIconRenderer.swift; sourceTree = "<group>"; };
 		9078945433D78022949CAD01 /* SystemMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemMonitor.swift; sourceTree = "<group>"; };
 		924B9413B767AFC6A800309E /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -88,7 +92,9 @@
 		B7DAD11A8C9B17BEE05AF6F7 /* MemoryMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryMonitor.swift; sourceTree = "<group>"; };
 		BDF10A472263F4D3A14D66D7 /* Formatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Formatters.swift; sourceTree = "<group>"; };
 		C055A166B62F7713FBF1E06C /* SharedSnapshotStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedSnapshotStore.swift; sourceTree = "<group>"; };
+		CB151B77C3B8CD30C3C8133D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D443E7451C9B864E7B2E5DD1 /* NetworkMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkMonitor.swift; sourceTree = "<group>"; };
+		E4B1B22BF72BE2DA2767C1C8 /* DashColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashColors.swift; sourceTree = "<group>"; };
 		E6996275C958D23FEEF5F53F /* SensorMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SensorMonitor.swift; sourceTree = "<group>"; };
 		E8EF64D11133CEAE0E6B02F9 /* GPUMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GPUMonitor.swift; sourceTree = "<group>"; };
 		F2CBC1E0089D12794C009BA7 /* top.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = top.entitlements; sourceTree = "<group>"; };
@@ -102,9 +108,11 @@
 				29CA2D6752660EB724A81024 /* Components.swift */,
 				0E10EFDC71117EFD320E56DC /* CPUMonitor.swift */,
 				29285F7CA92F6C2EAA89ABB3 /* DashboardView.swift */,
+				E4B1B22BF72BE2DA2767C1C8 /* DashColors.swift */,
 				2BBB0DC5B19F533CACF69283 /* DiskMonitor.swift */,
 				BDF10A472263F4D3A14D66D7 /* Formatters.swift */,
 				E8EF64D11133CEAE0E6B02F9 /* GPUMonitor.swift */,
+				CB151B77C3B8CD30C3C8133D /* Info.plist */,
 				B374ADDFC17D27B57235CCDB /* main.swift */,
 				B7DAD11A8C9B17BEE05AF6F7 /* MemoryMonitor.swift */,
 				2DB6A173E4B003B5C8510315 /* MenuRows.swift */,
@@ -142,6 +150,7 @@
 				FCCA8C136BFFD099F2A86CC5 /* Provider.swift */,
 				56FEA33356055F3B19B5DC15 /* TopWidgetBundle.swift */,
 				12E0ECA73F7CDE01DC42200F /* TopWidgetExtension.entitlements */,
+				76152BC2A621C0E429B901A3 /* WidgetComponents.swift */,
 			);
 			path = TopWidget;
 			sourceTree = "<group>";
@@ -248,6 +257,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E6F310F16D6618B7D4D0796E /* AllInOneWidget.swift in Sources */,
+				8C0D780C0FACE27EB0907316 /* DashColors.swift in Sources */,
 				8461149EFD72A7941C97DB60 /* Formatters.swift in Sources */,
 				224ACB549BD5790987493F32 /* MetricDualWidgetView.swift in Sources */,
 				E4F7187C0AF4B65E5BE9D28E /* MetricGaugeWidgetView.swift in Sources */,
@@ -256,6 +266,7 @@
 				51E4A85018D9E5C674F76518 /* Provider.swift in Sources */,
 				2B626558F2403094B229FF1D /* SharedSnapshotStore.swift in Sources */,
 				FE59208D7D6F0CCF1611AD6F /* TopWidgetBundle.swift in Sources */,
+				2AC99AF5F09AEBFD4D330823 /* WidgetComponents.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -265,6 +276,7 @@
 			files = (
 				D6BF4EA88A9686AB951CAD2C /* CPUMonitor.swift in Sources */,
 				B622B14EB2916469A9063FB0 /* Components.swift in Sources */,
+				3CFA85C0C956F420AC0C7F3B /* DashColors.swift in Sources */,
 				E6596F82A727E89B331BC140 /* DashboardView.swift in Sources */,
 				260BF0BAD76394925924CA25 /* DiskMonitor.swift in Sources */,
 				7F7776A2A1D6A505527F48FE /* Formatters.swift in Sources */,
@@ -382,10 +394,8 @@
 				CODE_SIGN_ENTITLEMENTS = Sources/top/top.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = top;
-				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Local build";
+				ENABLE_DEBUG_DYLIB = YES;
+				INFOPLIST_FILE = Sources/top/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -491,10 +501,8 @@
 				CODE_SIGN_ENTITLEMENTS = Sources/top/top.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = top;
-				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "Local build";
+				ENABLE_DEBUG_DYLIB = YES;
+				INFOPLIST_FILE = Sources/top/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

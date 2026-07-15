@@ -13,12 +13,13 @@ struct CPUWidget: Widget {
                 value: cpu.map { Fmt.percent($0.totalUsage) } ?? "—",
                 subtitle: cpu.map { "User \(Fmt.percent($0.user)) · System \(Fmt.percent($0.system))\nLoad \(String(format: "%.1f", $0.load1))" },
                 fraction: cpu?.totalUsage,
-                tint: .blue
+                tint: DashColors.cpuLine,
+                statusPill: cpu.map { WidgetStatus.load($0.totalUsage) }
             )
         }
         .configurationDisplayName("CPU")
         .description("Current CPU usage.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall])
     }
 }
 
@@ -34,12 +35,13 @@ struct GPUWidget: Widget {
                 value: gpu.map { $0.available ? Fmt.percent($0.utilization) : "n/a" } ?? "—",
                 subtitle: gpu?.name,
                 fraction: (gpu?.available == true) ? gpu?.utilization : nil,
-                tint: .purple
+                tint: DashColors.gpuLine,
+                statusPill: (gpu?.available == true) ? gpu.map { WidgetStatus.load($0.utilization) } : nil
             )
         }
         .configurationDisplayName("GPU")
         .description("Current GPU usage.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall])
     }
 }
 
@@ -53,14 +55,15 @@ struct MemoryWidget: Widget {
                 title: "Memory",
                 systemImage: "memorychip",
                 value: memory.map { Fmt.percent($0.pressure) } ?? "—",
-                subtitle: memory.map { "\(Fmt.bytes($0.used)) / \(Fmt.bytes($0.total))" },
+                subtitle: memory.map { "\(Fmt.bytesBinary($0.used)) / \(Fmt.bytesBinary($0.total))\nSwap \(Fmt.bytesBinary($0.swapUsed))" },
                 fraction: memory?.pressure,
-                tint: memory.map { pressureColor($0.pressure) } ?? .accentColor
+                tint: memory.map { WidgetStatus.pressure($0.pressure).color } ?? DashColors.accent,
+                statusPill: memory.map { WidgetStatus.pressure($0.pressure) }
             )
         }
         .configurationDisplayName("Memory")
         .description("Current memory pressure and usage.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall])
     }
 }
 
@@ -75,16 +78,23 @@ struct NetworkWidget: Widget {
                 systemImage: "network",
                 leftLabel: "Down",
                 leftValue: network.map { Fmt.speed($0.downBytesPerSec) } ?? "—",
-                leftColor: .accentColor,
+                leftColor: DashColors.download,
+                leftMagnitude: network?.downBytesPerSec ?? 0,
                 rightLabel: "Up",
                 rightValue: network.map { Fmt.speed($0.upBytesPerSec) } ?? "—",
-                rightColor: .orange,
-                subtitle: network.flatMap { $0.primaryIP.isEmpty ? nil : $0.primaryIP }
+                rightColor: DashColors.upload,
+                rightMagnitude: network?.upBytesPerSec ?? 0,
+                subtitle: network.flatMap { net -> String? in
+                    var parts: [String] = []
+                    if !net.primaryInterface.isEmpty { parts.append(net.primaryInterface) }
+                    if !net.primaryIP.isEmpty { parts.append(net.primaryIP) }
+                    return parts.isEmpty ? nil : parts.joined(separator: " · ")
+                }
             )
         }
         .configurationDisplayName("Network")
         .description("Live download/upload speed.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall])
     }
 }
 
@@ -100,16 +110,18 @@ struct DiskWidget: Widget {
                 systemImage: "internaldrive",
                 leftLabel: "Read",
                 leftValue: disk.map { Fmt.speed($0.readBytesPerSec) } ?? "—",
-                leftColor: .green,
+                leftColor: DashColors.diskRead,
+                leftMagnitude: disk?.readBytesPerSec ?? 0,
                 rightLabel: "Write",
                 rightValue: disk.map { Fmt.speed($0.writeBytesPerSec) } ?? "—",
-                rightColor: .pink,
-                subtitle: mainVolume.map { "\(Fmt.bytes($0.used)) / \(Fmt.bytes($0.total))" }
+                rightColor: DashColors.diskWrite,
+                rightMagnitude: disk?.writeBytesPerSec ?? 0,
+                subtitle: mainVolume.map { "\($0.name)\n\(Fmt.bytes($0.used)) / \(Fmt.bytes($0.total))" }
             )
         }
         .configurationDisplayName("Disk")
         .description("Live disk read/write speed.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall])
     }
 }
 
@@ -119,17 +131,25 @@ struct SensorsWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: SnapshotProvider()) { entry in
             let sensors = entry.snapshot?.sensors
+            let hottestFan = sensors?.fans.max { $0.rpm < $1.rpm }
             MetricGaugeWidgetView(
                 title: "Sensors",
                 systemImage: "thermometer.medium",
                 value: sensors.map { Fmt.temp($0.cpuTemp) } ?? "—",
-                subtitle: sensors.map { "GPU \(Fmt.temp($0.gpuTemp))" },
-                tint: .red
+                subtitle: {
+                    var lines: [String] = []
+                    if let sensors { lines.append("GPU \(Fmt.temp(sensors.gpuTemp))") }
+                    if let hottestFan, hottestFan.rpm > 0 { lines.append(Fmt.rpm(hottestFan.rpm)) }
+                    return lines.isEmpty ? nil : lines.joined(separator: "\n")
+                }(),
+                fraction: sensors.map { min(1, max(0, $0.cpuTemp / 100)) },
+                tint: sensors.map { WidgetStatus.temperature($0.cpuTemp).color } ?? DashColors.statusCritical,
+                statusPill: sensors.map { WidgetStatus.temperature($0.cpuTemp) }
             )
         }
         .configurationDisplayName("Sensors")
         .description("CPU and GPU temperature.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall])
     }
 }
 
@@ -143,25 +163,29 @@ struct BatteryWidget: Widget {
                 title: "Battery",
                 systemImage: "battery.100",
                 value: power.map { $0.hasBattery ? Fmt.percent($0.percentage) : "AC" } ?? "—",
-                subtitle: power.flatMap { power in
+                subtitle: power.flatMap { power -> String? in
                     guard power.hasBattery else { return nil }
+                    var lines: [String] = []
                     if power.isCharging {
-                        return power.timeToFullMinutes >= 0 ? "\(Fmt.minutes(power.timeToFullMinutes)) to full" : "Charging"
+                        lines.append(power.timeToFullMinutes >= 0 ? "\(Fmt.minutes(power.timeToFullMinutes)) to full" : "Charging")
+                    } else if power.timeToEmptyMinutes >= 0 {
+                        lines.append("\(Fmt.minutes(power.timeToEmptyMinutes)) remaining")
                     }
-                    return power.timeToEmptyMinutes >= 0 ? "\(Fmt.minutes(power.timeToEmptyMinutes)) remaining" : nil
+                    if power.health > 0 { lines.append("Health \(Fmt.percent(power.health)) · \(power.cycleCount) cycles") }
+                    return lines.isEmpty ? nil : lines.joined(separator: "\n")
                 },
                 fraction: (power?.hasBattery == true) ? power?.percentage : nil,
-                tint: .green
+                tint: DashColors.statusGood,
+                statusPill: power.flatMap { power -> (label: String, color: Color)? in
+                    guard power.hasBattery else { return nil }
+                    if power.isCharging { return ("Charging", DashColors.statusGood) }
+                    if power.isPluggedIn { return ("Plugged In", DashColors.accent) }
+                    return power.percentage < 0.2 ? ("Low", DashColors.statusCritical) : nil
+                }
             )
         }
         .configurationDisplayName("Battery")
         .description("Battery charge and time remaining.")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall])
     }
-}
-
-private func pressureColor(_ pressure: Double) -> Color {
-    if pressure < 0.6 { return .green }
-    if pressure < 0.8 { return .yellow }
-    return .red
 }

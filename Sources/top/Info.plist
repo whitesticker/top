@@ -8,20 +8,23 @@
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleName</key>
     <string>$(PRODUCT_NAME)</string>
-    <key>CFBundlePackageType</key>
-    <string>XPC!</string>
     <key>CFBundleDisplayName</key>
-    <string>top Widgets</string>
+    <string>top</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.2.0</string>
+    <string>$(MARKETING_VERSION)</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
-    <key>NSExtension</key>
-    <dict>
-        <key>NSExtensionPointIdentifier</key>
-        <string>com.apple.widgetkit-extension</string>
-    </dict>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSHumanReadableCopyright</key>
+    <string>Local build</string>
     <key>TeamId</key>
-    <string>XXA24FWXDW</string>
+    <string>$(DEVELOPMENT_TEAM)</string>
 </dict>
 </plist>

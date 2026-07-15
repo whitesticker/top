@@ -208,7 +208,7 @@ struct MemoryRow: View {
                 .foregroundColor(pressureColor)
         } content: {
             HStack {
-                Text("\(Fmt.bytes(memory.used)) / \(Fmt.bytes(memory.total))")
+                Text("\(Fmt.bytesBinary(memory.used)) / \(Fmt.bytesBinary(memory.total))")
                     .font(.system(size: 9))
                     .foregroundColor(.secondary)
                     .monospacedDigit()
@@ -217,10 +217,10 @@ struct MemoryRow: View {
             UsageBar(fraction: memory.pressure, color: pressureColor, height: 6)
 
             StatGrid2x2(items: [
-                ("App", Fmt.bytes(memory.app)),
-                ("Wired", Fmt.bytes(memory.wired)),
-                ("Compressed", Fmt.bytes(memory.compressed)),
-                ("Cached", Fmt.bytes(memory.cached)),
+                ("App", Fmt.bytesBinary(memory.app)),
+                ("Wired", Fmt.bytesBinary(memory.wired)),
+                ("Compressed", Fmt.bytesBinary(memory.compressed)),
+                ("Cached", Fmt.bytesBinary(memory.cached)),
             ])
         }
     }

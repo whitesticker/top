@@ -13,6 +13,17 @@ struct SystemSnapshot: Codable {
     var sensors = SensorSample()
     var power = PowerSample()
     var date = Date()
+    var widgetHistory = WidgetHistory()
+}
+
+// A short recent-history tail carried alongside the snapshot purely for the
+// widget extension's sparkline graphics -- the widget process can't see
+// SystemMonitor's own (longer) in-memory ring buffers since it runs
+// separately, so a small slice rides along in the shared snapshot instead.
+struct WidgetHistory: Codable {
+    var cpu: [Double] = []       // 0...1, oldest first
+    var netDown: [Double] = []   // bytes/sec, oldest first
+    var netUp: [Double] = []     // bytes/sec, oldest first
 }
 
 // MARK: - CPU
