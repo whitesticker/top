@@ -22,7 +22,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.local.top
         PRODUCT_NAME: top
         INFOPLIST_FILE: Sources/top/Info.plist
-        MARKETING_VERSION: "0.2.0"
+        MARKETING_VERSION: "0.3.0"
         CURRENT_PROJECT_VERSION: "1"
         CODE_SIGN_ENTITLEMENTS: Sources/top/top.entitlements
         ENABLE_DEBUG_DYLIB: YES
@@ -46,7 +46,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.local.top.TopWidgetExtension
         PRODUCT_NAME: TopWidgetExtension
         INFOPLIST_FILE: TopWidget/Info.plist
-        MARKETING_VERSION: "0.2.0"
+        MARKETING_VERSION: "0.3.0"
         CURRENT_PROJECT_VERSION: "1"
         CODE_SIGN_ENTITLEMENTS: TopWidget/TopWidgetExtension.entitlements
         SKIP_INSTALL: YES
